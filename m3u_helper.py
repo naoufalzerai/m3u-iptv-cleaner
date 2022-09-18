@@ -28,11 +28,10 @@ def meta(l):
                 ('False','True')[len(ret_best(isVidLink))>0],
                 ret_best(streamLink),
                 ret_best(logo),
-                ret_best(name)
+                ret_best(name),
+                l
             )
         
-def export_m3u(lst):
-    pass
 
 def parse_m3u(source):
 

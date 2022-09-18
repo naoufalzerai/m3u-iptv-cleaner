@@ -5,7 +5,6 @@ from threading import Thread
 
 # Define notification event for thread completion
 EVT_RESULT_ID = wx.NewId()
-LST_M3U_ITEMS = []
 app = wx.App() 
 
 def EVT_RESULT(win, func):
@@ -35,7 +34,6 @@ class asyncLoad(Thread):
 
         """Run Worker Thread."""
         wx.PostEvent(self.window, ResultEvent("Start Loading..."))
-        LST_M3U_ITEMS = []
         LST_M3U_ITEMS = m3u_helper.parse_m3u(window.loadFile.GetPath())
         root = window.treeList.GetRootItem()
 
@@ -47,6 +45,7 @@ class asyncLoad(Thread):
                 window.treeList.SetItemText(child_node, 2, l[2])
                 window.treeList.SetItemText(child_node, 3, l[1])
                 window.treeList.SetItemText(child_node, 4, l[3])  
+                window.treeList.SetItemText(child_node, 5, l[5])  
 
             wx.PostEvent(self.window, ResultEvent(f"Loading {gname}..."))
                                                  
@@ -68,12 +67,23 @@ def config_btns(window):
     
     # Delete
     def delete(_):
+        sels = window.treeList.GetSelections()
+        for s in sels:
+            window.treeList.DeleteItem(s)
         pass
     window.delete.Bind(wx.EVT_BUTTON, delete)
 
     # Export
     def export(_):
-        m3u_helper.export_m3u(LST_M3U_ITEMS)
+        checkedItems = []              
+        item = window.treeList.GetFirstItem()
+        while item.IsOk():
+            checkedItems.append(window.treeList.GetItemText(item,5))
+            item = window.treeList.GetNextItem(item)
+                        
+        with open("outfile.m3u", "w") as outfile:
+            outfile.write("\n".join(checkedItems))
+        
     window.export.Bind(wx.EVT_BUTTON, export)
     
     # Exit
@@ -87,12 +97,13 @@ def config_list(window):
     window.treeList.AppendColumn("Stream link")    
     window.treeList.AppendColumn("Is Video link")    
     window.treeList.AppendColumn("Logo")    
+    window.treeList.AppendColumn("Raw")    
 
 
 def config_update_display(window):
     def updateDisplay( msg):        
         t = msg.data
-        window.statusBar.SetStatusText(t)        
+        window.statusBar.SetStatusText(t,1)
         
     EVT_RESULT(window, updateDisplay)
 
