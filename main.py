@@ -3,11 +3,10 @@ import m3u_helper
 import wx
 from threading import Thread
 
-
-
 # Define notification event for thread completion
 EVT_RESULT_ID = wx.NewId()
-
+LST_M3U_ITEMS = []
+app = wx.App() 
 
 def EVT_RESULT(win, func):
 	"""Define Result Event."""
@@ -23,8 +22,7 @@ class ResultEvent(wx.PyEvent):
 
 ########################################################################
 class asyncLoad(Thread):
-    """Test Worker Thread Class."""
-        
+       
     #----------------------------------------------------------------------
     def __init__(self, window):
         """Init Worker Thread Class."""
@@ -34,8 +32,11 @@ class asyncLoad(Thread):
 
     #----------------------------------------------------------------------
     def run(self):
+
         """Run Worker Thread."""
-        lst = m3u_helper.parse_m3u(window.loadFile.GetPath())
+        wx.PostEvent(self.window, ResultEvent("Start Loading..."))
+        LST_M3U_ITEMS = []
+        LST_M3U_ITEMS = m3u_helper.parse_m3u(window.loadFile.GetPath())
         root = window.treeList.GetRootItem()
 
         def sub(window,l,grp_node,gname):
@@ -47,47 +48,61 @@ class asyncLoad(Thread):
                 window.treeList.SetItemText(child_node, 3, l[1])
                 window.treeList.SetItemText(child_node, 4, l[3])  
 
-            wx.PostEvent(self.window, ResultEvent(f"Loading {gname}"))
+            wx.PostEvent(self.window, ResultEvent(f"Loading {gname}..."))
                                                  
-        for k,category in lst.items():
+        for k,category in LST_M3U_ITEMS.items():
             grp_node = window.treeList.AppendItem(root, k)
             window.treeList.SetItemText(grp_node, 0, k)                    
             Thread(target=sub,args=(window,category,grp_node,k)).start()
 
 
-        wx.PostEvent(self.window, ResultEvent("Thread finished!"))
+        wx.PostEvent(self.window, ResultEvent("Loading finished!"))
 
-def config_btn_load(window):
+def config_btns(window):    
+    # Loading
     def load_m3u(_):
+        window.treeList.DeleteAllItems()
         thread = asyncLoad(window)
 
     window.load.Bind(wx.EVT_BUTTON, load_m3u) 
-
-def config_list(window):
     
+    # Delete
+    def delete(_):
+        pass
+    window.delete.Bind(wx.EVT_BUTTON, delete)
+
+    # Export
+    def export(_):
+        m3u_helper.export_m3u(LST_M3U_ITEMS)
+    window.export.Bind(wx.EVT_BUTTON, export)
+    
+    # Exit
+    def exit(_):
+        app.ExitMainLoop()
+    window.exit.Bind(wx.EVT_BUTTON, exit)
+
+def config_list(window):    
     window.treeList.AppendColumn("Category")
     window.treeList.AppendColumn("Name")    
     window.treeList.AppendColumn("Stream link")    
-    window.treeList.AppendColumn("Video link")    
+    window.treeList.AppendColumn("Is Video link")    
     window.treeList.AppendColumn("Logo")    
 
-def updateDisplay( msg):
-    """
-    Receives data from thread and updates the display
-    """
-    t = msg.data
-    print(t)
 
-if __name__ == '__main__':
-    app = wx.App()
-    # Set up event handler for any worker thread results
-    	
-    window = gui.MainFrame(None)
+def config_update_display(window):
+    def updateDisplay( msg):        
+        t = msg.data
+        window.statusBar.SetStatusText(t)        
+        
     EVT_RESULT(window, updateDisplay)
 
-    config_btn_load(window)
+if __name__ == '__main__':
+       
+    window = gui.MainFrame(None)
+        
+    config_update_display(window)
+    config_btns(window)
     config_list(window)
-
     
     window.Show()
     app.MainLoop()

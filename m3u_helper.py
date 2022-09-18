@@ -7,8 +7,11 @@ from operator import itemgetter
 def meta(l):
     # result = re.findall(r'(http://.*(\.mkv|\.mp4|\.avi))|(tvg-logo=\"((.|\n)*?)\")|(tvg-name=\"((.|\n)*?)\")|(group-title=\"((.|\n)*?)\")', l)
 
-    vidLink= re.findall(r'(http://.*(\.mkv|\.mp4|\.avi))|(http://.*(\.png|\.jpg|\.jpeg))', l)
-    streamLink= re.findall(r'(http://.*)', l)
+    if l=='':
+        return ('','','','','')
+
+    isVidLink= re.findall(r'(http://.*(\.mkv|\.mp4|\.avi))', l)
+    streamLink= [l.split('\n')[1]]
     logo= re.findall(r'(tvg-logo=\"((.|\n)*?)\")', l)
     name= re.findall(r'(tvg-name=\"((.|\n)*?)\")', l)
     group= re.findall(r'(group-title=\"((.|\n)*?)\")', l)
@@ -22,12 +25,14 @@ def meta(l):
             return a[0]
     return (
                 ret_best(group),
-                ret_best(vidLink),
+                ('False','True')[len(ret_best(isVidLink))>0],
                 ret_best(streamLink),
                 ret_best(logo),
                 ret_best(name)
             )
         
+def export_m3u(lst):
+    pass
 
 def parse_m3u(source):
 
