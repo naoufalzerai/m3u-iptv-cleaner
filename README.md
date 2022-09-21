@@ -22,3 +22,7 @@ Desktop app that help you clean your large m3u 📺.
     $ pip install -r requirements.txt
 ### Run the app
     $ python3 main.py
+
+## From release 
+
+[Download the exe link](from https://github.com/naoufalzerai/m3u-iptv-cleaner/releases) 
