@@ -1,119 +1,110 @@
-from GUI import gui
+#!/usr/bin/env python
+from select import select
+import sys
+import PySimpleGUI as sg
 import m3u_helper
-import wx
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 
-# Define notification event for thread completion
-EVT_RESULT_ID = wx.NewId()
-app = wx.App() 
+POOL_SIZE = 50
+# Base64 versions of images of a folder and a file. PNG files (may not work with PySimpleGUI27, swap with GIFs)
 
-def EVT_RESULT(win, func):
-	"""Define Result Event."""
-	win.Connect(-1, -1, EVT_RESULT_ID, func)
-
-class ResultEvent(wx.PyEvent):
-    """Simple event to carry arbitrary result data."""
-    def __init__(self, data):
-        """Init Result Event."""
-        wx.PyEvent.__init__(self)
-        self.SetEventType(EVT_RESULT_ID)
-        self.data = data
-
-########################################################################
-class asyncLoad(Thread):
-       
-    #----------------------------------------------------------------------
-    def __init__(self, window):
-        """Init Worker Thread Class."""
-        Thread.__init__(self)
-        self.window = window
-        self.start()    # start the thread
-
-    #----------------------------------------------------------------------
-    def run(self):
-
-        """Run Worker Thread."""
-        wx.PostEvent(self.window, ResultEvent("Start Loading..."))
-        LST_M3U_ITEMS = m3u_helper.parse_m3u(window.loadFile.GetPath())
-        root = window.treeList.GetRootItem()
-
-        def sub(window,l,grp_node,gname):
-            for l in category:
-                child_node = window.treeList.AppendItem(grp_node, "")
-                window.treeList.SetItemText(child_node, 0, "")
-                window.treeList.SetItemText(child_node, 1, l[4])
-                window.treeList.SetItemText(child_node, 2, l[2])
-                window.treeList.SetItemText(child_node, 3, l[1])
-                window.treeList.SetItemText(child_node, 4, l[3])  
-                window.treeList.SetItemText(child_node, 5, l[5])  
-
-            wx.PostEvent(self.window, ResultEvent(f"Loading {gname}..."))
-                                                 
-        for k,category in LST_M3U_ITEMS.items():
-            grp_node = window.treeList.AppendItem(root, k)
-            window.treeList.SetItemText(grp_node, 0, k)                    
-            Thread(target=sub,args=(window,category,grp_node,k)).start()
+folder_icon = b'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsSAAALEgHS3X78AAABnUlEQVQ4y8WSv2rUQRSFv7vZgJFFsQg2EkWb4AvEJ8hqKVilSmFn3iNvIAp21oIW9haihBRKiqwElMVsIJjNrprsOr/5dyzml3UhEQIWHhjmcpn7zblw4B9lJ8Xag9mlmQb3AJzX3tOX8Tngzg349q7t5xcfzpKGhOFHnjx+9qLTzW8wsmFTL2Gzk7Y2O/k9kCbtwUZbV+Zvo8Md3PALrjoiqsKSR9ljpAJpwOsNtlfXfRvoNU8Arr/NsVo0ry5z4dZN5hoGqEzYDChBOoKwS/vSq0XW3y5NAI/uN1cvLqzQur4MCpBGEEd1PQDfQ74HYR+LfeQOAOYAmgAmbly+dgfid5CHPIKqC74L8RDyGPIYy7+QQjFWa7ICsQ8SpB/IfcJSDVMAJUwJkYDMNOEPIBxA/gnuMyYPijXAI3lMse7FGnIKsIuqrxgRSeXOoYZUCI8pIKW/OHA7kD2YYcpAKgM5ABXk4qSsdJaDOMCsgTIYAlL5TQFTyUIZDmev0N/bnwqnylEBQS45UKnHx/lUlFvA3fo+jwR8ALb47/oNma38cuqiJ9AAAAAASUVORK5CYII='
+file_icon = b'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsSAAALEgHS3X78AAABU0lEQVQ4y52TzStEURiHn/ecc6XG54JSdlMkNhYWsiILS0lsJaUsLW2Mv8CfIDtr2VtbY4GUEvmIZnKbZsY977Uwt2HcyW1+dTZvt6fn9557BGB+aaNQKBR2ifkbgWR+cX13ubO1svz++niVTA1ArDHDg91UahHFsMxbKWycYsjze4muTsP64vT43v7hSf/A0FgdjQPQWAmco68nB+T+SFSqNUQgcIbN1bn8Z3RwvL22MAvcu8TACFgrpMVZ4aUYcn77BMDkxGgemAGOHIBXxRjBWZMKoCPA2h6qEUSRR2MF6GxUUMUaIUgBCNTnAcm3H2G5YQfgvccYIXAtDH7FoKq/AaqKlbrBj2trFVXfBPAea4SOIIsBeN9kkCwxsNkAqRWy7+B7Z00G3xVc2wZeMSI4S7sVYkSk5Z/4PyBWROqvox3A28PN2cjUwinQC9QyckKALxj4kv2auK0xAAAAAElFTkSuQmCC'
 
 
-        wx.PostEvent(self.window, ResultEvent("Loading finished!"))
+class Tree_Data(sg.TreeData):
 
-def config_btns(window):    
-    # Loading
-    def load_m3u(_):
-        window.treeList.DeleteAllItems()
-        thread = asyncLoad(window)
+    def __init__(self):
+        super().__init__()
 
-    window.load.Bind(wx.EVT_BUTTON, load_m3u) 
-    
-    # Delete
-    def delete(_):
-        sels = window.treeList.GetSelections()
-        for s in sels:
-            window.treeList.DeleteItem(s)
-        pass
-    window.delete.Bind(wx.EVT_BUTTON, delete)
+    def move(self, key1, key2):
+        if key1 == '':
+            return False
+        node = self.tree_dict[key1]
+        parent1_node = self.tree_dict[node.parent]
+        parent1_node.children.remove(node)
+        parent2_node = self.tree_dict[key2]
+        parent2_node.children.append(node)
+        return True
 
-    # Export
-    def export(_):
-        checkedItems = []              
-        item = window.treeList.GetFirstItem()
-        while item.IsOk():
-            checkedItems.append(window.treeList.GetItemText(item,5))
-            item = window.treeList.GetNextItem(item)
-                        
-        with open("outfile.m3u", "w") as outfile:
-            outfile.write("\n".join(checkedItems))
+    def load(self,file):
+        LST_M3U_ITEMS = m3u_helper.parse_m3u(file)
         
-    window.export.Bind(wx.EVT_BUTTON, export)
-    
-    # Exit
-    def exit(_):
-        app.ExitMainLoop()
-    window.exit.Bind(wx.EVT_BUTTON, exit)
+        def sub(args):
+            try:
+                gname= args[0]
+                category= args[1]                
+                
+                self.Insert('', gname, gname,values=[len(category)], icon=folder_icon)
+                for l in category:
+                    self.Insert(gname, l[4], l[4],values=[l[5]], icon=file_icon)
+            except:
+                pass
 
-def config_list(window):    
-    window.treeList.AppendColumn("Category")
-    window.treeList.AppendColumn("Name")    
-    window.treeList.AppendColumn("Stream link")    
-    window.treeList.AppendColumn("Is Video link")    
-    window.treeList.AppendColumn("Logo")    
-    window.treeList.AppendColumn("Raw")    
+        with ThreadPoolExecutor(max_workers=POOL_SIZE) as executor:
+            args = ((k,category)for k,category in LST_M3U_ITEMS.items())            
+            args = list(args)
+            executor.map(sub,args)
 
-
-def config_update_display(window):
-    def updateDisplay( msg):        
-        t = msg.data
-        window.statusBar.SetStatusText(t,1)
+    def delete(self, key):
+        if key == '':
+            return False
+        node = self.tree_dict[key]
         
-    EVT_RESULT(window, updateDisplay)
+        parent_node = self.tree_dict[node.parent]
+        parent_node.children.remove(node)
+        return True
 
-if __name__ == '__main__':
-       
-    window = gui.MainFrame(None)
-        
-    config_update_display(window)
-    config_btns(window)
-    config_list(window)
-    
-    window.Show()
-    app.MainLoop()
+    def export(self,file):   
+        selected = ['#EXTM3U']     
+        for cat in self.tree_dict:
+            if len(self.tree_dict[cat].values)>0:
+                val = self.tree_dict[cat].values[0]
+                if not isinstance(val,int):
+                    selected.append(val)
+
+        with open(f"{file}.m3u", "w") as outfile:
+            outfile.write("\n".join(selected))
+
+treedata = Tree_Data()
+
+starting_path = sg.popup_get_file('File to load')
+
+if not starting_path:
+    sys.exit(0)
+
+treedata.load(starting_path)
+
+layout = [[sg.Text('Browse chanels')],
+          [sg.Tree(data=treedata,
+                   headings=['Size', ],
+                   auto_size_columns=True,
+                   select_mode=sg.TABLE_SELECT_MODE_EXTENDED,
+                   num_rows=20,
+                   col0_width=40,
+                   key='-TREE-',
+                   show_expanded=False,
+                   enable_events=True,
+                   expand_x=True,
+                   expand_y=True,
+                   ),],
+          [sg.Button('Delete'),sg.Button('Export'), sg.Button('Cancel')]]
+
+window = sg.Window('M3U Editor', layout, resizable=True, finalize=True)
+
+
+while True:     # Event Loop
+    event, values = window.read()
+    if event in (sg.WIN_CLOSED, 'Cancel'):
+        break
+
+    if event in ('Export'):
+        save = sg.popup_get_text('Save file')
+        treedata.export(save)
+
+    if event in ('Delete'):   
+        with ThreadPoolExecutor(max_workers=POOL_SIZE) as executor:
+            executor.map(lambda n:treedata.delete(n),values['-TREE-'])        
+        window['-TREE-'].Update(values=treedata)
+   
