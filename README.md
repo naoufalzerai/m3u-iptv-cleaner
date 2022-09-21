@@ -25,4 +25,4 @@ Desktop app that help you clean your large m3u 📺.
 
 ## From release 
 
-[Download the exe link](from https://github.com/naoufalzerai/m3u-iptv-cleaner/releases) 
+Download the from : https://github.com/naoufalzerai/m3u-iptv-cleaner/releases
