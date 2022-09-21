@@ -5,8 +5,7 @@ from operator import itemgetter
 
 
 def meta(l):
-    # result = re.findall(r'(http://.*(\.mkv|\.mp4|\.avi))|(tvg-logo=\"((.|\n)*?)\")|(tvg-name=\"((.|\n)*?)\")|(group-title=\"((.|\n)*?)\")', l)
-
+   
     if l=='':
         return ('','','','','')
 
