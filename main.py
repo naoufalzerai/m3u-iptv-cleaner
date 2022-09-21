@@ -71,7 +71,7 @@ if not starting_path:
 
 treedata.load(starting_path)
 
-layout = [[sg.Text('Browse chanels')],
+layout = [[sg.Text('Browse channels')],
           [sg.Tree(data=treedata,
                    headings=['Size', ],
                    auto_size_columns=True,
